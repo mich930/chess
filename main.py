@@ -1,6 +1,5 @@
 import chess
 import chess.syzygy
-import random
 import berserk
 import threading
 
@@ -9,23 +8,14 @@ CLIENT = berserk.Client(session=SESSION)
 CHECKMATE = 20000
 DRAW = 0
 MAX_DEPTH = 5
-AI_COLOR = chess.BLACK
 ENDGAME_START = 2*1340
 CASTLE_VALUE = 25
+MINIMUM_TIME = 300
 
-d = 0
-counter = 0
 bestMove = None
 bestEval = 0
 pieceScore = [100,320,330,500,900,0]
-hashTable = [[0 for x in range(12)] for y in range(64)]
-castlingHash = [0, 0, 0, 0]
-enPassantHash = [0, 0, 0, 0, 0, 0, 0, 0]
-nextToMoveHash = 0
-hashedPositions = {}
 white,black = [], []
-colors = {}
-recentColor = ''
 
 
 def init_heat_maps():
@@ -192,21 +182,6 @@ def piece_id(square):
     return piece - 1
 
 
-def init_hashing():
-    global nextToMoveHash, hashTable
-
-    nextToMoveHash = random.randint(0, 2 ** 64 - 1)
-    for i in range(64):  # loop over the board
-        for j in range(12):  # loop over the pieces
-            hashTable[i][j] = random.randint(0, 2 ** 64 - 1)
-
-    for i in range(4):
-        castlingHash[i] = random.randint(0, 2 ** 64 - 1)
-
-    for i in range(8):
-        enPassantHash[i] = random.randint(0, 2 ** 64 - 1)
-
-
 def evaluation(board):
     value = 0
     if board.is_checkmate():
@@ -344,7 +319,6 @@ def capture_search(board, alpha, beta):
 def seconds(t):
     return t.timestamp()
 
-init_heat_maps()
 
 class Game(threading.Thread):
     def __init__(self, client, game_id, **kwargs):
@@ -450,12 +424,14 @@ class Game(threading.Thread):
         pass
 
 
+init_heat_maps()
+
 while True:
     print('Bot is online')
     for event in CLIENT.bots.stream_incoming_events():
         print(event)
         if event['type'] == 'challenge':
-            if event['challenge']['variant']['key'] == 'standard' and (event['challenge']['perf']['name'] == 'Correspondence' or event['challenge']['timeControl']['limit'] >= 300):
+            if event['challenge']['variant']['key'] == 'standard' and (event['challenge']['perf']['name'] == 'Correspondence' or event['challenge']['timeControl']['limit'] >= MINIMUM_TIME):
                 CLIENT.bots.accept_challenge(event['challenge']['id'])
             else:
                 CLIENT.bots.decline_challenge(event['challenge']['id'])
