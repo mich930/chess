@@ -3,7 +3,9 @@ import chess.syzygy
 import berserk
 import threading
 
-SESSION = berserk.TokenSession('YourTokenGoesHere')
+f = open("token.txt", "r")
+TOKEN = f.readline()
+SESSION = berserk.TokenSession(TOKEN)
 CLIENT = berserk.Client(session=SESSION)
 CHECKMATE = 20000
 DRAW = 0
@@ -387,7 +389,7 @@ class Game(threading.Thread):
 
         for event in self.stream:
             print(event)
-            if event['type'] == 'gameState':
+            if event['type'] == 'gameState' and event['status'] == 'started':
                 self.handle_state_change(event)
             elif event['type'] == 'chatLine':
                 self.handle_chat_line(event)
@@ -425,11 +427,10 @@ class Game(threading.Thread):
 
 
 init_heat_maps()
+print('Bot is online')
 
 while True:
-    print('Bot is online')
     for event in CLIENT.bots.stream_incoming_events():
-        print(event)
         if event['type'] == 'challenge':
             if event['challenge']['variant']['key'] == 'standard' and (event['challenge']['perf']['name'] == 'Correspondence' or event['challenge']['timeControl']['limit'] >= MINIMUM_TIME):
                 CLIENT.bots.accept_challenge(event['challenge']['id'])
