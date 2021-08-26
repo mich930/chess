@@ -1,7 +1,7 @@
 # Chess
  This is a simple chess bot written in Python with the help of python-chess. 
  I advise using pypy when running it to speed it up, otherwise it may flag often.
- You can try playing it on lichess.org/@/robocik.
+ You can try playing it [here](https://lichess.org/@/robocik) (lichess account required).
 
 ## Features:
  - Negamax algorithm with alpha-beta pruning
