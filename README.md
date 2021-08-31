@@ -9,10 +9,10 @@
  - Move Ordering
  - Capture Search
  - Syzygy Tablebases for 3,4 and 5 pieces
+ - Openings Book by Richard Pijl
  - Integrated with lichess.org by Berserk
 
 ## Hopefully coming soon:
- - Openings Book
  - Zobrist Hashing
  - Transposition Table
  - Iterative Deepening

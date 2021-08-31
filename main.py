@@ -1,5 +1,6 @@
 import chess
 import chess.syzygy
+import chess.polyglot
 import berserk
 import threading
 
@@ -173,17 +174,6 @@ def init_heat_maps():
     ]
 
 
-def piece_id(square):
-    piece = board.piece_type_at(square)
-    if piece is None:
-        return None
-
-    if board.color_at(square) == chess.BLACK:
-        piece += 6  # black pieces have numbers 6-11, white ones have 0-5
-
-    return piece - 1
-
-
 def evaluation(board):
     value = 0
     if board.is_checkmate():
@@ -203,19 +193,18 @@ def evaluation(board):
         value -= CASTLE_VALUE
 
     if len(pieces) <= 5: #endgame table
-        with chess.syzygy.open_tablebase("3-4-5piecesSyzygy/3-4-5") as tablebase:
-            wdl = tablebase.get_wdl(board)
-            dtz = tablebase.get_dtz(board)
-            if wdl == 2 and dtz <= (50 - board.halfmove_clock) * 2:
-                return CHECKMATE - dtz
-            if wdl == 1 or (wdl == 2 and dtz > (50 - board.halfmove_clock) * 2):
-                return CHECKMATE / 2 - dtz
-            if wdl == 0:
-                return DRAW
-            if wdl == -1 or (wdl == -2 and -dtz > (50 - board.halfmove_clock) * 2):
-                return -CHECKMATE / 2 + dtz
-            if wdl == -2 and -dtz <= (50 - board.halfmove_clock) * 2:
-                return -CHECKMATE + dtz
+        wdl = tablebase.get_wdl(board)
+        dtz = tablebase.get_dtz(board)
+        if wdl == 2 and dtz <= (50 - board.halfmove_clock) * 2:
+            return CHECKMATE - dtz
+        if wdl == 1 or (wdl == 2 and dtz > (50 - board.halfmove_clock) * 2):
+            return CHECKMATE / 2 - dtz
+        if wdl == 0:
+            return DRAW
+        if wdl == -1 or (wdl == -2 and -dtz > (50 - board.halfmove_clock) * 2):
+            return -CHECKMATE / 2 + dtz
+        if wdl == -2 and -dtz <= (50 - board.halfmove_clock) * 2:
+            return -CHECKMATE + dtz
 
     if board.is_stalemate() or board.is_insufficient_material() or board.can_claim_draw():
         return DRAW
@@ -339,6 +328,13 @@ class Game(threading.Thread):
 
     def find_move(self, board, depth, alpha, beta):
 
+        if depth == self.depth:
+            try:
+                self.bestMove = book.weighted_choice(board).move
+                return
+            except IndexError:
+                pass
+
         if board.is_checkmate():
             return -(CHECKMATE - (MAX_DEPTH - depth))
 
@@ -381,14 +377,13 @@ class Game(threading.Thread):
 
     def run(self):
         try:
-            CLIENT.bots.make_move(self.game_id, 'e2e4')
+            CLIENT.bots.make_move(self.game_id, book.weighted_choice(self.board).move)
             self.ai_turn = chess.WHITE
         except BaseException as e:
             print(e)
             self.ai_turn = chess.BLACK
 
         for event in self.stream:
-            print(event)
             if event['type'] == 'gameState' and event['status'] == 'started':
                 self.handle_state_change(event)
             elif event['type'] == 'chatLine':
@@ -426,17 +421,19 @@ class Game(threading.Thread):
         pass
 
 
-init_heat_maps()
 print('Bot is online')
+init_heat_maps()
+book = chess.polyglot.MemoryMappedReader("baronbook30/baron30.bin")
+tablebase = chess.syzygy.open_tablebase("3-4-5piecesSyzygy/3-4-5")
 
-while True:
-    for event in CLIENT.bots.stream_incoming_events():
-        if event['type'] == 'challenge':
-            if event['challenge']['variant']['key'] == 'standard' and (event['challenge']['perf']['name'] == 'Correspondence' or event['challenge']['timeControl']['limit'] >= MINIMUM_TIME):
-                CLIENT.bots.accept_challenge(event['challenge']['id'])
-            else:
-                CLIENT.bots.decline_challenge(event['challenge']['id'])
+for event in CLIENT.bots.stream_incoming_events():
+    if event['type'] == 'challenge':
+        if event['challenge']['variant']['key'] == 'standard' and (event['challenge']['perf']['name'] == 'Correspondence' or event['challenge']['timeControl']['limit'] >= MINIMUM_TIME):
+            CLIENT.bots.accept_challenge(event['challenge']['id'])
+        else:
+            CLIENT.bots.decline_challenge(event['challenge']['id'])
 
-        elif event['type'] == 'gameStart':
-            game = Game(CLIENT, event['game']['id'])
-            game.start()
+    elif event['type'] == 'gameStart':
+        print("Bot has started a game")
+        game = Game(CLIENT, event['game']['id'])
+        game.start()
